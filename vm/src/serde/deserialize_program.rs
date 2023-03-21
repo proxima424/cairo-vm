@@ -418,9 +418,12 @@ pub fn parse_program_json(
         }
     }
 
+    let (hints, hints_ranges) = Program::flatten_hints(&program_json.hints);
+
     let shared_program_data = SharedProgramData {
         data: program_json.data,
-        hints: program_json.hints,
+        hints,
+        hints_ranges,
         main: entrypoint_pc,
         start,
         end,
@@ -446,6 +449,7 @@ pub fn parse_program_json(
 mod tests {
     use super::*;
     use assert_matches::assert_matches;
+    use core::num::NonZeroUsize;
     use felt::felt_str;
     use num_traits::One;
     use num_traits::Zero;
@@ -616,7 +620,7 @@ mod tests {
             MaybeRelocatable::Int(Felt252::new(2345108766317314046_i64)),
         ];
 
-        let mut hints: HashMap<usize, Vec<HintParams>> = HashMap::new();
+        let mut hints = HashMap::new();
         hints.insert(
             0,
             vec![HintParams {
@@ -812,43 +816,60 @@ mod tests {
             MaybeRelocatable::Int(Felt252::new(2345108766317314046_i64)),
         ];
 
-        let mut hints: HashMap<usize, Vec<HintParams>> = HashMap::new();
-        hints.insert(
-            0,
-            vec![HintParams {
-                code: "memory[ap] = segments.add()".to_string(),
-                accessible_scopes: vec![
-                    String::from("starkware.cairo.common.alloc"),
-                    String::from("starkware.cairo.common.alloc.alloc"),
-                ],
-                flow_tracking_data: FlowTrackingData {
-                    ap_tracking: ApTracking {
-                        group: 0,
-                        offset: 0,
+        let hints: HashMap<_, _> = [
+            (
+                0,
+                vec![HintParams {
+                    code: "memory[ap] = segments.add()".to_string(),
+                    accessible_scopes: vec![
+                        String::from("starkware.cairo.common.alloc"),
+                        String::from("starkware.cairo.common.alloc.alloc"),
+                    ],
+                    flow_tracking_data: FlowTrackingData {
+                        ap_tracking: ApTracking {
+                            group: 0,
+                            offset: 0,
+                        },
+                        reference_ids: HashMap::new(),
                     },
-                    reference_ids: HashMap::new(),
-                },
-            }],
-        );
-        hints.insert(
-            46,
-            vec![HintParams {
-                code: "import math".to_string(),
-                accessible_scopes: vec![String::from("__main__"), String::from("__main__.main")],
-                flow_tracking_data: FlowTrackingData {
-                    ap_tracking: ApTracking {
-                        group: 5,
-                        offset: 0,
+                }],
+            ),
+            (
+                46,
+                vec![HintParams {
+                    code: "import math".to_string(),
+                    accessible_scopes: vec![
+                        String::from("__main__"),
+                        String::from("__main__.main"),
+                    ],
+                    flow_tracking_data: FlowTrackingData {
+                        ap_tracking: ApTracking {
+                            group: 5,
+                            offset: 0,
+                        },
+                        reference_ids: HashMap::new(),
                     },
-                    reference_ids: HashMap::new(),
-                },
-            }],
-        );
+                }],
+            ),
+        ]
+        .into();
+        let mut hints_ranges = vec![None; 47];
+        hints_ranges[0] = Some((0, NonZeroUsize::new(1).unwrap()));
+        hints_ranges[46] = Some((1, NonZeroUsize::new(1).unwrap()));
 
         assert_eq!(program.builtins, builtins);
         assert_eq!(program.shared_program_data.data, data);
         assert_eq!(program.shared_program_data.main, Some(0));
-        assert_eq!(program.shared_program_data.hints, hints);
+
+        let program_hints: HashMap<_, _> = program
+            .shared_program_data
+            .hints_ranges
+            .iter()
+            .enumerate()
+            .filter_map(|(pc, r)| r.map(|(s, l)| (pc, (s, s + l.get()))))
+            .map(|(pc, (s, e))| (pc, program.shared_program_data.hints[s..e].to_vec()))
+            .collect();
+        assert_eq!(program_hints, hints);
     }
 
     /// Deserialize a program without an entrypoint.
@@ -871,43 +892,57 @@ mod tests {
             MaybeRelocatable::Int(Felt252::new(2345108766317314046_i64)),
         ];
 
-        let mut hints: HashMap<usize, Vec<HintParams>> = HashMap::new();
-        hints.insert(
-            0,
-            vec![HintParams {
-                code: "memory[ap] = segments.add()".to_string(),
-                accessible_scopes: vec![
-                    String::from("starkware.cairo.common.alloc"),
-                    String::from("starkware.cairo.common.alloc.alloc"),
-                ],
-                flow_tracking_data: FlowTrackingData {
-                    ap_tracking: ApTracking {
-                        group: 0,
-                        offset: 0,
+        let hints: HashMap<_, _> = [
+            (
+                0,
+                vec![HintParams {
+                    code: "memory[ap] = segments.add()".to_string(),
+                    accessible_scopes: vec![
+                        String::from("starkware.cairo.common.alloc"),
+                        String::from("starkware.cairo.common.alloc.alloc"),
+                    ],
+                    flow_tracking_data: FlowTrackingData {
+                        ap_tracking: ApTracking {
+                            group: 0,
+                            offset: 0,
+                        },
+                        reference_ids: HashMap::new(),
                     },
-                    reference_ids: HashMap::new(),
-                },
-            }],
-        );
-        hints.insert(
-            46,
-            vec![HintParams {
-                code: "import math".to_string(),
-                accessible_scopes: vec![String::from("__main__"), String::from("__main__.main")],
-                flow_tracking_data: FlowTrackingData {
-                    ap_tracking: ApTracking {
-                        group: 5,
-                        offset: 0,
+                }],
+            ),
+            (
+                46,
+                vec![HintParams {
+                    code: "import math".to_string(),
+                    accessible_scopes: vec![
+                        String::from("__main__"),
+                        String::from("__main__.main"),
+                    ],
+                    flow_tracking_data: FlowTrackingData {
+                        ap_tracking: ApTracking {
+                            group: 5,
+                            offset: 0,
+                        },
+                        reference_ids: HashMap::new(),
                     },
-                    reference_ids: HashMap::new(),
-                },
-            }],
-        );
+                }],
+            ),
+        ]
+        .into();
 
         assert_eq!(program.builtins, builtins);
         assert_eq!(program.shared_program_data.data, data);
         assert_eq!(program.shared_program_data.main, None);
-        assert_eq!(program.shared_program_data.hints, hints);
+
+        let program_hints: HashMap<_, _> = program
+            .shared_program_data
+            .hints_ranges
+            .iter()
+            .enumerate()
+            .filter_map(|(pc, r)| r.map(|(s, l)| (pc, (s, s + l.get()))))
+            .map(|(pc, (s, e))| (pc, program.shared_program_data.hints[s..e].to_vec()))
+            .collect();
+        assert_eq!(program_hints, hints);
     }
 
     #[test]

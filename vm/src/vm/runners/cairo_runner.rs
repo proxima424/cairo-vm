@@ -507,29 +507,26 @@ impl CairoRunner {
     }
 
     /// Gets the data used by the HintProcessor to execute each hint
-    pub fn get_hint_data_dictionary(
+    pub fn get_hint_data(
         &self,
         references: &[HintReference],
         hint_executor: &mut dyn HintProcessor,
-    ) -> Result<HashMap<usize, Vec<Box<dyn Any>>>, VirtualMachineError> {
-        let mut hint_data_dictionary = HashMap::<usize, Vec<Box<dyn Any>>>::new();
-        for (hint_index, hints) in self.program.shared_program_data.hints.iter() {
-            for hint in hints {
-                let hint_data = hint_executor.compile_hint(
-                    &hint.code,
-                    &hint.flow_tracking_data.ap_tracking,
-                    &hint.flow_tracking_data.reference_ids,
-                    references,
-                );
-                hint_data_dictionary
-                    .entry(*hint_index)
-                    .or_default()
-                    .push(hint_data.map_err(|_| {
-                        VirtualMachineError::CompileHintFail(hint.code.clone().into_boxed_str())
-                    })?);
-            }
-        }
-        Ok(hint_data_dictionary)
+    ) -> Result<Vec<Box<dyn Any>>, VirtualMachineError> {
+        self.program
+            .shared_program_data
+            .hints
+            .iter()
+            .map(|hint| {
+                hint_executor
+                    .compile_hint(
+                        &hint.code,
+                        &hint.flow_tracking_data.ap_tracking,
+                        &hint.flow_tracking_data.reference_ids,
+                        references,
+                    )
+                    .map_err(|_| VirtualMachineError::CompileHintFail(hint.code.clone().into()))
+            })
+            .collect()
     }
 
     pub fn get_constants(&self) -> &HashMap<String, Felt252> {
@@ -547,16 +544,21 @@ impl CairoRunner {
         hint_processor: &mut dyn HintProcessor,
     ) -> Result<(), VirtualMachineError> {
         let references = &self.program.shared_program_data.reference_manager;
-        let hint_data_dictionary = self.get_hint_data_dictionary(references, hint_processor)?;
-
+        let hint_data = self.get_hint_data(references, hint_processor)?;
         #[cfg(feature = "hooks")]
-        vm.execute_before_first_step(self, &hint_data_dictionary)?;
-
+        vm.execute_before_first_step(self, &hint_data)?;
         while vm.run_context.pc != address && !hint_processor.consumed() {
+            let hint_data = self
+                .program
+                .shared_program_data
+                .hints_ranges
+                .get(vm.run_context.pc.offset)
+                .and_then(|r| r.and_then(|(s, l)| hint_data.get(s..s + l.get())))
+                .unwrap_or(&[]);
             vm.step(
                 hint_processor,
                 &mut self.exec_scopes,
-                &hint_data_dictionary,
+                hint_data,
                 &self.program.constants,
             )?;
             hint_processor.consume_step();
@@ -577,17 +579,24 @@ impl CairoRunner {
         hint_processor: &mut dyn HintProcessor,
     ) -> Result<(), VirtualMachineError> {
         let references = &self.program.shared_program_data.reference_manager;
-        let hint_data_dictionary = self.get_hint_data_dictionary(references, hint_processor)?;
+        let hint_data = self.get_hint_data(references, hint_processor)?;
 
         for remaining_steps in (1..=steps).rev() {
             if self.final_pc.as_ref() == Some(&vm.run_context.pc) {
                 return Err(VirtualMachineError::EndOfProgram(remaining_steps));
             }
 
+            let hint_data = self
+                .program
+                .shared_program_data
+                .hints_ranges
+                .get(vm.run_context.pc.offset)
+                .and_then(|r| r.and_then(|(s, l)| hint_data.get(s..s + l.get())))
+                .unwrap_or(&[]);
             vm.step(
                 hint_processor,
                 &mut self.exec_scopes,
-                &hint_data_dictionary,
+                hint_data,
                 &self.program.constants,
             )?;
         }

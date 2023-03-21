@@ -14,6 +14,7 @@ use crate::{
 };
 #[cfg(feature = "cairo-1-hints")]
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
+use core::num::NonZeroUsize;
 use felt::{Felt252, PRIME_STR};
 
 #[cfg(feature = "std")]
@@ -43,7 +44,8 @@ use std::path::Path;
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub(crate) struct SharedProgramData {
     pub(crate) data: Vec<MaybeRelocatable>,
-    pub(crate) hints: HashMap<usize, Vec<HintParams>>,
+    pub(crate) hints: Vec<HintParams>,
+    pub(crate) hints_ranges: Vec<Option<(usize, NonZeroUsize)>>,
     pub(crate) main: Option<usize>,
     //start and end labels will only be used in proof-mode
     pub(crate) start: Option<usize>,
@@ -83,12 +85,16 @@ impl Program {
                 constants.insert(key.clone(), value);
             }
         }
+
+        let (hints, hints_ranges) = Self::flatten_hints(&hints);
+
         let shared_program_data = SharedProgramData {
             data,
-            hints,
             main,
             start: None,
             end: None,
+            hints,
+            hints_ranges,
             error_message_attributes,
             instruction_locations,
             identifiers,
@@ -99,6 +105,33 @@ impl Program {
             constants,
             builtins,
         })
+    }
+
+    pub(crate) fn flatten_hints(
+        hints: &HashMap<usize, Vec<HintParams>>,
+    ) -> (Vec<HintParams>, Vec<Option<(usize, NonZeroUsize)>>) {
+        let bounds = hints
+            .iter()
+            .map(|(pc, hs)| (*pc, hs.len()))
+            .reduce(|(max_pc, full_len), (pc, len)| (max_pc.max(pc), full_len + len));
+
+        let Some((max_pc, full_len)) = bounds else {
+            return (Vec::new(), Vec::new());
+        };
+
+        let mut hints_values = Vec::with_capacity(full_len);
+        let mut hints_ranges = vec![None; max_pc + 1];
+
+        for (pc, hs) in hints.iter().filter(|(_, hs)| !hs.is_empty()) {
+            let range = (
+                hints_values.len(),
+                NonZeroUsize::new(hs.len()).expect("empty vecs already filtered"),
+            );
+            hints_ranges[*pc] = Some(range);
+            hints_values.extend_from_slice(&hs[..]);
+        }
+
+        (hints_values, hints_ranges)
     }
 
     #[cfg(feature = "std")]
@@ -267,6 +300,71 @@ mod tests {
         assert_eq!(program.shared_program_data.data, data);
         assert_eq!(program.shared_program_data.main, None);
         assert_eq!(program.shared_program_data.identifiers, HashMap::new());
+        assert_eq!(program.shared_program_data.hints, Vec::new());
+        assert_eq!(program.shared_program_data.hints_ranges, Vec::new());
+    }
+
+    #[test]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+    fn new_program_with_hints() {
+        let reference_manager = ReferenceManager {
+            references: Vec::new(),
+        };
+
+        let builtins: Vec<BuiltinName> = Vec::new();
+        let data: Vec<MaybeRelocatable> = vec![
+            mayberelocatable!(5189976364521848832),
+            mayberelocatable!(1000),
+            mayberelocatable!(5189976364521848832),
+            mayberelocatable!(2000),
+            mayberelocatable!(5201798304953696256),
+            mayberelocatable!(2345108766317314046),
+        ];
+
+        let str_to_hint_param = |s: &str| HintParams {
+            code: s.to_string(),
+            accessible_scopes: vec![],
+            flow_tracking_data: FlowTrackingData {
+                ap_tracking: ApTracking {
+                    group: 0,
+                    offset: 0,
+                },
+                reference_ids: HashMap::new(),
+            },
+        };
+
+        let hints = HashMap::from([
+            (5, vec![str_to_hint_param("c"), str_to_hint_param("d")]),
+            (1, vec![str_to_hint_param("a")]),
+            (4, vec![str_to_hint_param("b")]),
+        ]);
+
+        let program = Program::new(
+            builtins.clone(),
+            data.clone(),
+            None,
+            hints.clone(),
+            reference_manager,
+            HashMap::new(),
+            Vec::new(),
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(program.builtins, builtins);
+        assert_eq!(program.shared_program_data.data, data);
+        assert_eq!(program.shared_program_data.main, None);
+        assert_eq!(program.shared_program_data.identifiers, HashMap::new());
+
+        let program_hints: HashMap<_, _> = program
+            .shared_program_data
+            .hints_ranges
+            .iter()
+            .enumerate()
+            .filter_map(|(pc, r)| r.map(|(s, l)| (pc, (s, s + l.get()))))
+            .map(|(pc, (s, e))| (pc, program.shared_program_data.hints[s..e].to_vec()))
+            .collect();
+        assert_eq!(program_hints, hints);
     }
 
     #[test]
@@ -870,7 +968,8 @@ mod tests {
     fn default_program() {
         let shared_program_data = SharedProgramData {
             data: Vec::new(),
-            hints: HashMap::new(),
+            hints: Vec::new(),
+            hints_ranges: Vec::new(),
             main: None,
             start: None,
             end: None,

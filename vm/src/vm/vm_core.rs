@@ -446,15 +446,13 @@ impl VirtualMachine {
         &mut self,
         hint_executor: &mut dyn HintProcessor,
         exec_scopes: &mut ExecutionScopes,
-        hint_data_dictionary: &HashMap<usize, Vec<Box<dyn Any>>>,
+        hint_data: &[Box<dyn Any>],
         constants: &HashMap<String, Felt252>,
     ) -> Result<(), VirtualMachineError> {
-        if let Some(hint_list) = hint_data_dictionary.get(&self.run_context.pc.offset) {
-            for (hint_index, hint_data) in hint_list.iter().enumerate() {
-                hint_executor
-                    .execute_hint(self, exec_scopes, hint_data, constants)
-                    .map_err(|err| VirtualMachineError::Hint(Box::new((hint_index, err))))?
-            }
+        for (hint_index, hint_data) in hint_data.iter().enumerate() {
+            hint_executor
+                .execute_hint(self, exec_scopes, hint_data, constants)
+                .map_err(|err| VirtualMachineError::Hint(Box::new((hint_index, err))))?
         }
         Ok(())
     }
@@ -488,26 +486,16 @@ impl VirtualMachine {
         &mut self,
         hint_executor: &mut dyn HintProcessor,
         exec_scopes: &mut ExecutionScopes,
-        hint_data_dictionary: &HashMap<usize, Vec<Box<dyn Any>>>,
+        hint_data: &[Box<dyn Any>],
         constants: &HashMap<String, Felt252>,
     ) -> Result<(), VirtualMachineError> {
-        self.step_hint(hint_executor, exec_scopes, hint_data_dictionary, constants)?;
+        self.step_hint(hint_executor, exec_scopes, hint_data, constants)?;
 
         #[cfg(feature = "hooks")]
-        self.execute_pre_step_instruction(
-            hint_executor,
-            exec_scopes,
-            hint_data_dictionary,
-            constants,
-        )?;
+        self.execute_pre_step_instruction(hint_executor, exec_scopes, hint_data, constants)?;
         self.step_instruction()?;
         #[cfg(feature = "hooks")]
-        self.execute_post_step_instruction(
-            hint_executor,
-            exec_scopes,
-            hint_data_dictionary,
-            constants,
-        )?;
+        self.execute_post_step_instruction(hint_executor, exec_scopes, hint_data, constants)?;
 
         Ok(())
     }
@@ -2662,7 +2650,7 @@ mod tests {
             vm.step(
                 &mut hint_processor,
                 exec_scopes_ref!(),
-                &HashMap::new(),
+                &Vec::new(),
                 &HashMap::new(),
             ),
             Ok(())
@@ -2891,8 +2879,8 @@ mod tests {
             vm.step(
                 &mut hint_processor,
                 exec_scopes_ref!(),
-                &HashMap::new(),
-                &HashMap::new(),
+                &Vec::new(),
+                &HashMap::new()
             ),
             Ok(())
         );
@@ -2973,8 +2961,8 @@ mod tests {
                 vm.step(
                     &mut hint_processor,
                     exec_scopes_ref!(),
-                    &HashMap::new(),
-                    &HashMap::new(),
+                    &Vec::new(),
+                    &HashMap::new()
                 ),
                 Ok(())
             );
@@ -3069,8 +3057,8 @@ mod tests {
             vm.step(
                 &mut hint_processor,
                 exec_scopes_ref!(),
-                &HashMap::new(),
-                &HashMap::new(),
+                &Vec::new(),
+                &HashMap::new()
             ),
             Ok(())
         );
@@ -3090,8 +3078,8 @@ mod tests {
             vm.step(
                 &mut hint_processor,
                 exec_scopes_ref!(),
-                &HashMap::new(),
-                &HashMap::new(),
+                &Vec::new(),
+                &HashMap::new()
             ),
             Ok(())
         );
@@ -3112,8 +3100,8 @@ mod tests {
             vm.step(
                 &mut hint_processor,
                 exec_scopes_ref!(),
-                &HashMap::new(),
-                &HashMap::new(),
+                &Vec::new(),
+                &HashMap::new()
             ),
             Ok(())
         );
@@ -3632,13 +3620,10 @@ mod tests {
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
     fn test_step_for_preset_memory_with_alloc_hint() {
         let mut vm = vm!(true);
-        let hint_data_dictionary = HashMap::from([(
-            0_usize,
-            vec![any_box!(HintProcessorData::new_default(
-                "memory[ap] = segments.add()".to_string(),
-                HashMap::new(),
-            ))],
-        )]);
+        let hint_data = vec![any_box!(HintProcessorData::new_default(
+            "memory[ap] = segments.add()".to_string(),
+            HashMap::new(),
+        ))];
 
         //Initialzie registers
         run_context!(vm, 3, 2, 2);
@@ -3673,12 +3658,17 @@ mod tests {
 
         //Run Steps
         for _ in 0..6 {
+            let hint_data = if vm.run_context.pc == (0, 0).into() {
+                &hint_data[0..]
+            } else {
+                &hint_data[0..0]
+            };
             assert_matches!(
                 vm.step(
                     &mut hint_processor,
                     exec_scopes_ref!(),
-                    &hint_data_dictionary,
-                    &HashMap::new(),
+                    hint_data,
+                    &HashMap::new()
                 ),
                 Ok(())
             );
@@ -4217,7 +4207,7 @@ mod tests {
         fn before_first_step_hook(
             _vm: &mut VirtualMachine,
             _runner: &mut CairoRunner,
-            _hint_data: &HashMap<usize, Vec<Box<dyn Any>>>,
+            _hint_data: &[Box<dyn Any>],
         ) -> Result<(), VirtualMachineError> {
             Err(VirtualMachineError::Unexpected)
         }

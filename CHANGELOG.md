@@ -2,6 +2,12 @@
 
 #### Upcoming Changes
 
+* perf: change `Program::shared_program_data::hints` from `HashMap<usize, Vec<Box<dyn Any>>>` to `Vec<Box<dyn Any>>` and refer to them as ranges stored in a `Vec<_>` indexed by PC with run time reductions of up to 12% [#931](https://github.com/lambdaclass/cairo-vm/pull/931)
+  BREAKING:
+  * `get_hint_dictionary(&self, &[HintReference], &mut dyn HintProcessor) -> Result<HashMap<usize, Vec<Box<dyn Any>>, VirtualMachineError>` ->
+    `get_hint_data(self, &[HintReference], &mut dyn HintProcessor) -> Result<Vec<Box<dyn Any>, VirtualMachineError>`
+  * Hook methods receive `&[Box<dyn Any>]` rather than `&HashMap<usize, Vec<Box<dyn Any>>>`
+
 * fix: specify resolver version 2 in the virtual workspace's manifest [#1311](https://github.com/lambdaclass/cairo-vm/pull/1311)
 
 * feat: add `lambdaworks-felt` feature to `cairo-vm-cli` [#1308](https://github.com/lambdaclass/cairo-vm/pull/1308)

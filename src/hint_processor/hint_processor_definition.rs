@@ -50,7 +50,7 @@ pub trait HintProcessor {
     }
 }
 
-fn get_ids_data(
+pub fn get_ids_data(
     reference_ids: &HashMap<String, usize>,
     references: &HashMap<usize, HintReference>,
 ) -> Result<HashMap<String, HintReference>, VirtualMachineError> {

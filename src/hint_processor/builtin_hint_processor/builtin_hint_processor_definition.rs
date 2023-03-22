@@ -1,5 +1,8 @@
+use crate::any_box;
+use crate::hint_processor::hint_processor_definition::get_ids_data;
 use crate::stdlib::{any::Any, collections::HashMap, prelude::*, rc::Rc};
 
+use crate::vm::errors::vm_errors::VirtualMachineError;
 use crate::{
     hint_processor::{
         builtin_hint_processor::{
@@ -67,6 +70,7 @@ use felt::Felt252;
 use crate::hint_processor::builtin_hint_processor::skip_next_instruction::skip_next_instruction;
 
 use super::ec_utils::{chained_ec_op_random_ec_point_hint, random_ec_point_hint, recover_y_hint};
+use super::precompiled_hint::PrecompiledHint;
 
 pub struct HintProcessorData {
     pub code: String,
@@ -117,6 +121,30 @@ impl BuiltinHintProcessor {
 }
 
 impl HintProcessor for BuiltinHintProcessor {
+    fn compile_hint(
+        &self,
+        //Block of hint code as String
+        hint_code: &str,
+        //Ap Tracking Data corresponding to the Hint
+        ap_tracking_data: &ApTracking,
+        //Map from variable name to reference id number
+        //(may contain other variables aside from those used by the hint)
+        reference_ids: &HashMap<String, usize>,
+        //List of all references (key corresponds to element of the previous dictionary)
+        references: &HashMap<usize, HintReference>,
+    ) -> Result<Box<dyn Any>, VirtualMachineError> {
+        if let Some(data) =
+            PrecompiledHint::compile(hint_code, reference_ids, references, ap_tracking_data)
+        {
+            return Ok(any_box!(data));
+        }
+        Ok(any_box!(HintProcessorData {
+            code: hint_code.to_string(),
+            ap_tracking: ap_tracking_data.clone(),
+            ids_data: get_ids_data(reference_ids, references)?,
+        }))
+    }
+
     fn execute_hint(
         &mut self,
         vm: &mut VirtualMachine,
@@ -124,6 +152,9 @@ impl HintProcessor for BuiltinHintProcessor {
         hint_data: &Box<dyn Any>,
         constants: &HashMap<String, Felt252>,
     ) -> Result<(), HintError> {
+        if let Some(precompiled_hint) = hint_data.downcast_ref::<PrecompiledHint>() {
+            return precompiled_hint.execute(vm, exec_scopes);
+        }
         let hint_data = hint_data
             .downcast_ref::<HintProcessorData>()
             .ok_or(HintError::WrongHintData)?;

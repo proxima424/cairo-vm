@@ -1,7 +1,13 @@
-use crate::stdlib::{
-    collections::HashMap,
-    ops::{BitAnd, Shl},
-    prelude::*,
+use core::str::FromStr;
+
+use super::bigint_utils::BigInt3;
+use crate::{
+    hint_processor::hint_processor_utils::compute_addr_from_reference,
+    stdlib::{
+        collections::HashMap,
+        ops::{BitAnd, Shl},
+        prelude::*,
+    },
 };
 use crate::{
     hint_processor::{
@@ -19,11 +25,17 @@ use crate::{
     vm::{errors::hint_errors::HintError, vm_core::VirtualMachine},
 };
 use felt::Felt252;
+use lazy_static::lazy_static;
 use num_bigint::BigInt;
 use num_integer::Integer;
 use num_traits::{One, Zero};
 
-use super::bigint_utils::BigInt3;
+lazy_static! {
+    static ref SECP_P: BigInt = BigInt::from_str(
+        "115792089237316195423570985008687907853269984665640564039457584007908834671663"
+    )
+    .unwrap();
+}
 
 #[derive(Debug, PartialEq)]
 struct EcPoint<'a> {
@@ -43,6 +55,40 @@ impl EcPoint<'_> {
             x: BigInt3::from_base_addr(point_addr, &format!("{}.x", name), vm)?,
             y: BigInt3::from_base_addr((point_addr + 3)?, &format!("{}.y", name), vm)?,
         })
+    }
+}
+
+pub struct EcNegateHintData {
+    point: HintReference,
+    ap_tracking: ApTracking,
+}
+
+impl EcNegateHintData {
+    pub fn compile(
+        reference_ids: &HashMap<String, usize>,
+        references: &HashMap<usize, HintReference>,
+        ap_tracking: &ApTracking,
+    ) -> Option<Self> {
+        Some(EcNegateHintData {
+            point: references.get(reference_ids.get("point")?)?.clone(),
+            ap_tracking: ap_tracking.clone(),
+        })
+    }
+
+    pub fn execute(
+        &self,
+        vm: &VirtualMachine,
+        exec_scopes: &mut ExecutionScopes,
+    ) -> Result<(), HintError> {
+        //ids.point
+        let point_y = (compute_addr_from_reference(&self.point, vm, &self.ap_tracking)
+            .ok_or(HintError::UnknownIdentifier("point".to_string()))?
+            + 3i32)?;
+        let y_bigint3 = BigInt3::from_base_addr(point_y, "point.y", vm)?;
+        let y = pack(y_bigint3);
+        let value = (-y).mod_floor(&SECP_P);
+        exec_scopes.insert_value("value", value);
+        Ok(())
     }
 }
 

@@ -13,6 +13,7 @@ pub mod math_utils;
 pub mod memcpy_hint_utils;
 pub mod memset_utils;
 pub mod pow_utils;
+mod precompiled_hint;
 pub mod secp;
 pub mod segments;
 pub mod set;

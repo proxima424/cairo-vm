@@ -966,10 +966,14 @@ impl VirtualMachine {
             _ => return Ok(()),
         };
 
-        let segment_used_sizes = self.segments.compute_effective_sizes();
+        self.segments.compute_effective_sizes();
         let segment_index = builtin.base();
         #[allow(deprecated)]
-        for i in 0..segment_used_sizes[segment_index] {
+        for i in 0..self
+            .segments
+            .get_segment_used_size(segment_index)
+            .ok_or(MemoryError::MissingSegmentUsedSizes)?
+        {
             let formatted_value = match self
                 .segments
                 .memory
@@ -4134,8 +4138,8 @@ mod tests {
             ],
         )
         .expect("Could not load data into memory.");
-
-        assert_eq!(vm.segments.compute_effective_sizes(), &vec![4]);
+        vm.segments.compute_effective_sizes();
+        assert_eq!(vm.segments.segment_used_sizes.unwrap(), vec![4]);
     }
 
     /// Test that compute_segment_effective_sizes() works as intended.
@@ -4156,7 +4160,8 @@ mod tests {
         )
         .expect("Could not load data into memory.");
 
-        assert_eq!(vm.segments.compute_effective_sizes(), &vec![4]);
+        vm.segments.compute_effective_sizes();
+        assert_eq!(vm.segments.segment_used_sizes.unwrap(), vec![4]);
     }
 
     #[test]

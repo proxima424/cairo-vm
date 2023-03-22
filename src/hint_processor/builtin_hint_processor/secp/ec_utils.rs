@@ -56,8 +56,34 @@ impl EcPoint<'_> {
             y: BigInt3::from_base_addr((point_addr + 3)?, &format!("{}.y", name), vm)?,
         })
     }
+
+    fn from_reference<'a>(
+        name: &'a str,
+        vm: &'a VirtualMachine,
+        reference: &HintReference,
+        ap_tracking: &ApTracking,
+    ) -> Result<EcPoint<'a>, HintError> {
+        // Get first addr of EcPoint struct
+        let point_addr = compute_addr_from_reference(reference, vm, ap_tracking)
+            .ok_or(HintError::UnknownIdentifier(name.to_string()))?;
+        Ok(EcPoint {
+            x: BigInt3::from_base_addr(point_addr, &format!("{}.x", name), vm)?,
+            y: BigInt3::from_base_addr((point_addr + 3)?, &format!("{}.y", name), vm)?,
+        })
+    }
 }
 
+/*
+Implements hint:
+%{
+    from starkware.cairo.common.cairo_secp.secp_utils import SECP_P, pack
+
+    y = pack(ids.point.y, PRIME) % SECP_P
+    # The modulo operation in python always returns a nonnegative number.
+    value = (-y) % SECP_P
+%}
+*/
+#[derive(Debug)]
 pub struct EcNegateHintData {
     point: HintReference,
     ap_tracking: ApTracking,
@@ -70,7 +96,9 @@ impl EcNegateHintData {
         ap_tracking: &ApTracking,
     ) -> Option<Self> {
         Some(EcNegateHintData {
-            point: references.get(reference_ids.get("point")?)?.clone(),
+            point: references
+                .get(reference_ids.get("starkware.cairo.common.cairo_secp.ec.ec_negate.point")?)?
+                .clone(),
             ap_tracking: ap_tracking.clone(),
         })
     }
@@ -96,40 +124,6 @@ impl EcNegateHintData {
 Implements hint:
 %{
     from starkware.cairo.common.cairo_secp.secp_utils import SECP_P, pack
-
-    y = pack(ids.point.y, PRIME) % SECP_P
-    # The modulo operation in python always returns a nonnegative number.
-    value = (-y) % SECP_P
-%}
-*/
-pub fn ec_negate(
-    vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    #[allow(deprecated)]
-    let secp_p = num_bigint::BigInt::one().shl(256u32)
-        - constants
-            .get(SECP_REM)
-            .ok_or(HintError::MissingConstant(SECP_REM))?
-            .clone()
-            .to_bigint();
-
-    //ids.point
-    let point_y = (get_relocatable_from_var_name("point", vm, ids_data, ap_tracking)? + 3i32)?;
-    let y_bigint3 = BigInt3::from_base_addr(point_y, "point.y", vm)?;
-    let y = pack(y_bigint3);
-    let value = (-y).mod_floor(&secp_p);
-    exec_scopes.insert_value("value", value);
-    Ok(())
-}
-
-/*
-Implements hint:
-%{
-    from starkware.cairo.common.cairo_secp.secp_utils import SECP_P, pack
     from starkware.python.math_utils import ec_double_slope
 
     # Compute the slope.
@@ -138,27 +132,41 @@ Implements hint:
     value = slope = ec_double_slope(point=(x, y), alpha=0, p=SECP_P)
 %}
 */
-pub fn compute_doubling_slope(
-    vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    #[allow(deprecated)]
-    let secp_p = num_bigint::BigInt::one().shl(256usize)
-        - constants
-            .get(SECP_REM)
-            .ok_or(HintError::MissingConstant(SECP_REM))?
-            .to_bigint();
+#[derive(Debug)]
+pub struct ComputeDoublingSlopeData {
+    point: HintReference,
+    ap_tracking: ApTracking,
+}
 
-    //ids.point
-    let point = EcPoint::from_var_name("point", vm, ids_data, ap_tracking)?;
+impl ComputeDoublingSlopeData {
+    pub fn compile(
+        reference_ids: &HashMap<String, usize>,
+        references: &HashMap<usize, HintReference>,
+        ap_tracking: &ApTracking,
+    ) -> Option<Self> {
+        Some(ComputeDoublingSlopeData {
+            point: references
+                .get(
+                    reference_ids
+                        .get("starkware.cairo.common.cairo_secp.ec.compute_doubling_slope.point")?,
+                )?
+                .clone(),
+            ap_tracking: ap_tracking.clone(),
+        })
+    }
+    pub fn execute(
+        &self,
+        vm: &mut VirtualMachine,
+        exec_scopes: &mut ExecutionScopes,
+    ) -> Result<(), HintError> {
+        //ids.point
+        let point = EcPoint::from_reference("point", vm, &self.point, &self.ap_tracking)?;
 
-    let value = ec_double_slope(&(pack(point.x), pack(point.y)), &BigInt::zero(), &secp_p);
-    exec_scopes.insert_value("value", value.clone());
-    exec_scopes.insert_value("slope", value);
-    Ok(())
+        let value = ec_double_slope(&(pack(point.x), pack(point.y)), &BigInt::zero(), &SECP_P);
+        exec_scopes.insert_value("value", value.clone());
+        exec_scopes.insert_value("slope", value);
+        Ok(())
+    }
 }
 
 /*

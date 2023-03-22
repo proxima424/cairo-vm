@@ -183,34 +183,50 @@ Implements hint:
     value = slope = line_slope(point1=(x0, y0), point2=(x1, y1), p=SECP_P)
 %}
 */
-pub fn compute_slope(
-    vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    #[allow(deprecated)]
-    let secp_p = BigInt::one().shl(256usize)
-        - constants
-            .get(SECP_REM)
-            .ok_or(HintError::MissingConstant(SECP_REM))?
-            .to_bigint();
+#[derive(Debug)]
+pub struct ComputeSlopeData {
+    point0: HintReference,
+    point1: HintReference,
+    ap_tracking: ApTracking,
+}
 
+impl ComputeSlopeData {
+    pub fn compile(
+        reference_ids: &HashMap<String, usize>,
+        references: &HashMap<usize, HintReference>,
+        ap_tracking: &ApTracking,
+    ) -> Option<Self> {
+        Some(ComputeSlopeData {
+            point0: references
+                .get(reference_ids.get("starkware.cairo.common.cairo_secp.ec.compute_slope.point0")?)?
+                .clone(),
+            point1: references
+                .get(reference_ids.get("starkware.cairo.common.cairo_secp.ec.compute_slope.point1")?)?
+                .clone(),
+            ap_tracking: ap_tracking.clone(),
+        })
+    }
+
+    pub fn execute(
+        &self,
+        vm: &VirtualMachine,
+        exec_scopes: &mut ExecutionScopes,
+    ) -> Result<(), HintError> {
     //ids.point0
-    let point0 = EcPoint::from_var_name("point0", vm, ids_data, ap_tracking)?;
+    let point0 = EcPoint::from_reference("point0", vm, &self.point0, &self.ap_tracking)?;
     //ids.point1
-    let point1 = EcPoint::from_var_name("point1", vm, ids_data, ap_tracking)?;
+    let point1 = EcPoint::from_reference("point1", vm, &self.point1, &self.ap_tracking)?;
 
     let value = line_slope(
         &(pack(point0.x), pack(point0.y)),
         &(pack(point1.x), pack(point1.y)),
-        &secp_p,
+        &SECP_P,
     );
     exec_scopes.insert_value("value", value.clone());
     exec_scopes.insert_value("slope", value);
     Ok(())
 }
+    }
 
 /*
 Implements hint:

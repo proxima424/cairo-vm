@@ -29,7 +29,7 @@ use crate::{
             secp::{
                 bigint_utils::{bigint_to_uint256, nondet_bigint3},
                 ec_utils::{
-                    compute_slope, ec_double_assign_new_x, ec_double_assign_new_y, ec_mul_inner,
+                    ec_double_assign_new_x, ec_double_assign_new_y, ec_mul_inner,
                     fast_ec_add_assign_new_x, fast_ec_add_assign_new_y,
                 },
                 field_utils::{
@@ -384,13 +384,6 @@ impl HintProcessor for BuiltinHintProcessor {
             ),
             hint_code::DIV_MOD_N_SAFE_DIV => div_mod_n_safe_div(exec_scopes, constants),
             hint_code::GET_POINT_FROM_X => get_point_from_x(
-                vm,
-                exec_scopes,
-                &hint_data.ids_data,
-                &hint_data.ap_tracking,
-                constants,
-            ),
-            hint_code::COMPUTE_SLOPE => compute_slope(
                 vm,
                 exec_scopes,
                 &hint_data.ids_data,

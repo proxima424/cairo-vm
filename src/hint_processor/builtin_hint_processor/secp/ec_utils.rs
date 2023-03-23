@@ -198,10 +198,16 @@ impl ComputeSlopeData {
     ) -> Option<Self> {
         Some(ComputeSlopeData {
             point0: references
-                .get(reference_ids.get("starkware.cairo.common.cairo_secp.ec.compute_slope.point0")?)?
+                .get(
+                    reference_ids
+                        .get("starkware.cairo.common.cairo_secp.ec.compute_slope.point0")?,
+                )?
                 .clone(),
             point1: references
-                .get(reference_ids.get("starkware.cairo.common.cairo_secp.ec.compute_slope.point1")?)?
+                .get(
+                    reference_ids
+                        .get("starkware.cairo.common.cairo_secp.ec.compute_slope.point1")?,
+                )?
                 .clone(),
             ap_tracking: ap_tracking.clone(),
         })
@@ -212,21 +218,21 @@ impl ComputeSlopeData {
         vm: &VirtualMachine,
         exec_scopes: &mut ExecutionScopes,
     ) -> Result<(), HintError> {
-    //ids.point0
-    let point0 = EcPoint::from_reference("point0", vm, &self.point0, &self.ap_tracking)?;
-    //ids.point1
-    let point1 = EcPoint::from_reference("point1", vm, &self.point1, &self.ap_tracking)?;
+        //ids.point0
+        let point0 = EcPoint::from_reference("point0", vm, &self.point0, &self.ap_tracking)?;
+        //ids.point1
+        let point1 = EcPoint::from_reference("point1", vm, &self.point1, &self.ap_tracking)?;
 
-    let value = line_slope(
-        &(pack(point0.x), pack(point0.y)),
-        &(pack(point1.x), pack(point1.y)),
-        &SECP_P,
-    );
-    exec_scopes.insert_value("value", value.clone());
-    exec_scopes.insert_value("slope", value);
-    Ok(())
-}
+        let value = line_slope(
+            &(pack(point0.x), pack(point0.y)),
+            &(pack(point1.x), pack(point1.y)),
+            &SECP_P,
+        );
+        exec_scopes.insert_value("value", value.clone());
+        exec_scopes.insert_value("slope", value);
+        Ok(())
     }
+}
 
 /*
 Implements hint:
@@ -240,67 +246,96 @@ Implements hint:
     value = new_x = (pow(slope, 2, SECP_P) - 2 * x) % SECP_P
 %}
 */
-pub fn ec_double_assign_new_x(
-    vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    #[allow(deprecated)]
-    let secp_p = BigInt::one().shl(256usize)
-        - constants
-            .get(SECP_REM)
-            .ok_or(HintError::MissingConstant(SECP_REM))?
-            .to_bigint();
 
-    //ids.slope
-    let slope = BigInt3::from_var_name("slope", vm, ids_data, ap_tracking)?;
-    //ids.point
-    let point = EcPoint::from_var_name("point", vm, ids_data, ap_tracking)?;
+#[derive(Debug)]
+pub struct EcDoubleAssignNewXData {
+    slope: HintReference,
+    point: HintReference,
+    ap_tracking: ApTracking,
+}
 
-    let slope = pack(slope);
-    let x = pack(point.x);
-    let y = pack(point.y);
+impl EcDoubleAssignNewXData {
+    pub fn compile(
+        reference_ids: &HashMap<String, usize>,
+        references: &HashMap<usize, HintReference>,
+        ap_tracking: &ApTracking,
+    ) -> Option<Self> {
+        Some(EcDoubleAssignNewXData {
+            slope: references
+                .get(reference_ids.get("starkware.cairo.common.cairo_secp.ec.ec_double.slope")?)?
+                .clone(),
+            point: references
+                .get(reference_ids.get("starkware.cairo.common.cairo_secp.ec.ec_double.point")?)?
+                .clone(),
+            ap_tracking: ap_tracking.clone(),
+        })
+    }
 
-    let value = (slope.pow(2) - (&x << 1u32)).mod_floor(&secp_p);
+    pub fn execute(
+        &self,
+        vm: &VirtualMachine,
+        exec_scopes: &mut ExecutionScopes,
+    ) -> Result<(), HintError> {
+        //ids.slope
+        let slope = BigInt3::from_base_addr(
+            compute_addr_from_reference(&self.slope, vm, &self.ap_tracking)
+                .ok_or(HintError::UnknownIdentifier("slope".to_string()))?,
+            "slope",
+            vm,
+        )?;
+        //ids.point
+        let point = EcPoint::from_reference("point", vm, &self.point, &self.ap_tracking)?;
 
-    //Assign variables to vm scope
-    exec_scopes.insert_value("slope", slope);
-    exec_scopes.insert_value("x", x);
-    exec_scopes.insert_value("y", y);
-    exec_scopes.insert_value("value", value.clone());
-    exec_scopes.insert_value("new_x", value);
-    Ok(())
+        let slope = pack(slope);
+        let x = pack(point.x);
+        let y = pack(point.y);
+
+        let value = (slope.pow(2) - (&x << 1u32)).mod_floor(&SECP_P);
+
+        //Assign variables to vm scope
+        exec_scopes.insert_value("slope", slope);
+        exec_scopes.insert_value("x", x);
+        exec_scopes.insert_value("y", y);
+        exec_scopes.insert_value("value", value.clone());
+        exec_scopes.insert_value("new_x", value);
+        Ok(())
+    }
 }
 
 /*
 Implements hint:
 %{ value = new_y = (slope * (x - new_x) - y) % SECP_P %}
 */
-pub fn ec_double_assign_new_y(
-    exec_scopes: &mut ExecutionScopes,
-    constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    #[allow(deprecated)]
-    let secp_p = BigInt::one().shl(256usize)
-        - constants
-            .get(SECP_REM)
-            .ok_or(HintError::MissingConstant(SECP_REM))?
-            .to_bigint();
+#[derive(Debug)]
+pub struct EcDoubleAssignNewYData {}
 
-    //Get variables from vm scope
-    let (slope, x, new_x, y) = (
-        exec_scopes.get::<BigInt>("slope")?,
-        exec_scopes.get::<BigInt>("x")?,
-        exec_scopes.get::<BigInt>("new_x")?,
-        exec_scopes.get::<BigInt>("y")?,
-    );
+impl EcDoubleAssignNewYData {
+    pub fn compile(
+        _reference_ids: &HashMap<String, usize>,
+        _references: &HashMap<usize, HintReference>,
+        _ap_tracking: &ApTracking,
+    ) -> Option<Self> {
+        Some(EcDoubleAssignNewYData {})
+    }
 
-    let value = (slope * (x - new_x) - y).mod_floor(&secp_p);
-    exec_scopes.insert_value("value", value.clone());
-    exec_scopes.insert_value("new_y", value);
-    Ok(())
+    pub fn execute(
+        &self,
+        vm: &VirtualMachine,
+        exec_scopes: &mut ExecutionScopes,
+    ) -> Result<(), HintError> {
+        //Get variables from vm scope
+        let (slope, x, new_x, y) = (
+            exec_scopes.get::<BigInt>("slope")?,
+            exec_scopes.get::<BigInt>("x")?,
+            exec_scopes.get::<BigInt>("new_x")?,
+            exec_scopes.get::<BigInt>("y")?,
+        );
+
+        let value = (slope * (x - new_x) - y).mod_floor(&SECP_P);
+        exec_scopes.insert_value("value", value.clone());
+        exec_scopes.insert_value("new_y", value);
+        Ok(())
+    }
 }
 
 /*
@@ -316,41 +351,67 @@ Implements hint:
     value = new_x = (pow(slope, 2, SECP_P) - x0 - x1) % SECP_P
 %}
 */
-pub fn fast_ec_add_assign_new_x(
-    vm: &mut VirtualMachine,
-    exec_scopes: &mut ExecutionScopes,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-    constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    #[allow(deprecated)]
-    let secp_p = BigInt::one().shl(256usize)
-        - constants
-            .get(SECP_REM)
-            .ok_or(HintError::MissingConstant(SECP_REM))?
-            .to_bigint();
 
-    //ids.slope
-    let slope = BigInt3::from_var_name("slope", vm, ids_data, ap_tracking)?;
-    //ids.point0
-    let point0 = EcPoint::from_var_name("point0", vm, ids_data, ap_tracking)?;
-    //ids.point1.x
-    let point1 = EcPoint::from_var_name("point1", vm, ids_data, ap_tracking)?;
+#[derive(Debug)]
+pub struct FastEcAddAssignXData {
+    point0: HintReference,
+    point1: HintReference,
+    slope: HintReference,
+    ap_tracking: ApTracking,
+}
 
-    let slope = pack(slope);
-    let x0 = pack(point0.x);
-    let x1 = pack(point1.x);
-    let y0 = pack(point0.y);
+impl FastEcAddAssignXData {
+    pub fn compile(
+        reference_ids: &HashMap<String, usize>,
+        references: &HashMap<usize, HintReference>,
+        ap_tracking: &ApTracking,
+    ) -> Option<Self> {
+        Some(FastEcAddAssignXData {
+            point0: references
+                .get(reference_ids.get("starkware.cairo.common.cairo_secp.ec.fast_ec_add.point0")?)?
+                .clone(),
+            point1: references
+                .get(reference_ids.get("starkware.cairo.common.cairo_secp.ec.fast_ec_add.point1")?)?
+                .clone(),
+            slope: references
+                .get(reference_ids.get("starkware.cairo.common.cairo_secp.ec.fast_ec_add.slope")?)?
+                .clone(),
+            ap_tracking: ap_tracking.clone(),
+        })
+    }
 
-    let value = (&slope * &slope - &x0 - &x1).mod_floor(&secp_p);
-    //Assign variables to vm scope
-    exec_scopes.insert_value("slope", slope);
-    exec_scopes.insert_value("x0", x0);
-    exec_scopes.insert_value("y0", y0);
-    exec_scopes.insert_value("value", value.clone());
-    exec_scopes.insert_value("new_x", value);
+    pub fn execute(
+        &self,
+        vm: &VirtualMachine,
+        exec_scopes: &mut ExecutionScopes,
+    ) -> Result<(), HintError> {
+        //ids.point0
+        let point0 = EcPoint::from_reference("point0", vm, &self.point0, &self.ap_tracking)?;
+        //ids.point1
+        let point1 = EcPoint::from_reference("point1", vm, &self.point1, &self.ap_tracking)?;
+        //ids.slope
+        let slope = BigInt3::from_base_addr(
+            compute_addr_from_reference(&self.slope, vm, &self.ap_tracking)
+                .ok_or(HintError::UnknownIdentifier("slope".to_string()))?,
+            "slope",
+            vm,
+        )?;
 
-    Ok(())
+        let slope = pack(slope);
+        let x0 = pack(point0.x);
+        let x1 = pack(point1.x);
+        let y0 = pack(point0.y);
+
+        let value = (&slope * &slope - &x0 - &x1).mod_floor(&SECP_P);
+        //Assign variables to vm scope
+        exec_scopes.insert_value("slope", slope);
+        exec_scopes.insert_value("x0", x0);
+        exec_scopes.insert_value("y0", y0);
+        exec_scopes.insert_value("value", value.clone());
+        exec_scopes.insert_value("new_x", value);
+
+        Ok(())
+    }
 }
 
 /*

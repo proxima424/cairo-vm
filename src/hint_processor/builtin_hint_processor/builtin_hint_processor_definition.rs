@@ -28,10 +28,6 @@ use crate::{
             pow_utils::pow,
             secp::{
                 bigint_utils::{bigint_to_uint256, nondet_bigint3},
-                ec_utils::{
-                    ec_double_assign_new_x, ec_double_assign_new_y, ec_mul_inner,
-                    fast_ec_add_assign_new_x, fast_ec_add_assign_new_y,
-                },
                 field_utils::{
                     is_zero_assign_scope_variables, is_zero_nondet, is_zero_pack, reduce,
                     verify_zero,
@@ -390,14 +386,6 @@ impl HintProcessor for BuiltinHintProcessor {
                 &hint_data.ap_tracking,
                 constants,
             ),
-            hint_code::EC_DOUBLE_ASSIGN_NEW_X => ec_double_assign_new_x(
-                vm,
-                exec_scopes,
-                &hint_data.ids_data,
-                &hint_data.ap_tracking,
-                constants,
-            ),
-            hint_code::EC_DOUBLE_ASSIGN_NEW_Y => ec_double_assign_new_y(exec_scopes, constants),
             hint_code::KECCAK_WRITE_ARGS => {
                 keccak_write_args(vm, &hint_data.ids_data, &hint_data.ap_tracking)
             }
@@ -427,17 +415,6 @@ impl HintProcessor for BuiltinHintProcessor {
             }
             hint_code::CAIRO_KECCAK_FINALIZE => {
                 cairo_keccak_finalize(vm, &hint_data.ids_data, &hint_data.ap_tracking, constants)
-            }
-            hint_code::FAST_EC_ADD_ASSIGN_NEW_X => fast_ec_add_assign_new_x(
-                vm,
-                exec_scopes,
-                &hint_data.ids_data,
-                &hint_data.ap_tracking,
-                constants,
-            ),
-            hint_code::FAST_EC_ADD_ASSIGN_NEW_Y => fast_ec_add_assign_new_y(exec_scopes, constants),
-            hint_code::EC_MUL_INNER => {
-                ec_mul_inner(vm, &hint_data.ids_data, &hint_data.ap_tracking)
             }
             hint_code::RELOCATE_SEGMENT => {
                 relocate_segment(vm, &hint_data.ids_data, &hint_data.ap_tracking)

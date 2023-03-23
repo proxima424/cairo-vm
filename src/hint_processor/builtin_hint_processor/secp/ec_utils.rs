@@ -9,10 +9,7 @@ use crate::{
 };
 use crate::{
     hint_processor::{
-        builtin_hint_processor::{
-            hint_utils::{get_relocatable_from_var_name, insert_value_into_ap},
-            secp::secp_utils::pack,
-        },
+        builtin_hint_processor::{hint_utils::insert_value_into_ap, secp::secp_utils::pack},
         hint_processor_definition::HintReference,
     },
     math_utils::{ec_double_slope, line_slope},
@@ -39,20 +36,6 @@ struct EcPoint<'a> {
     y: BigInt3<'a>,
 }
 impl EcPoint<'_> {
-    fn from_var_name<'a>(
-        name: &'a str,
-        vm: &'a VirtualMachine,
-        ids_data: &'a HashMap<String, HintReference>,
-        ap_tracking: &'a ApTracking,
-    ) -> Result<EcPoint<'a>, HintError> {
-        // Get first addr of EcPoint struct
-        let point_addr = get_relocatable_from_var_name(name, vm, ids_data, ap_tracking)?;
-        Ok(EcPoint {
-            x: BigInt3::from_base_addr(point_addr, &format!("{}.x", name), vm)?,
-            y: BigInt3::from_base_addr((point_addr + 3)?, &format!("{}.y", name), vm)?,
-        })
-    }
-
     fn from_reference<'a>(
         name: &'a str,
         vm: &'a VirtualMachine,
@@ -316,7 +299,7 @@ impl EcDoubleAssignNewYData {
 
     pub fn execute(
         &self,
-        vm: &VirtualMachine,
+        _vm: &VirtualMachine,
         exec_scopes: &mut ExecutionScopes,
     ) -> Result<(), HintError> {
         //Get variables from vm scope
@@ -428,7 +411,7 @@ impl FastEcAddAssignYData {
 
     pub fn execute(
         &self,
-        vm: &VirtualMachine,
+        _vm: &VirtualMachine,
         exec_scopes: &mut ExecutionScopes,
     ) -> Result<(), HintError> {
         //Get variables from vm scope
@@ -476,7 +459,7 @@ impl EcMulInnerData {
     pub fn execute(
         &self,
         vm: &mut VirtualMachine,
-        exec_scopes: &mut ExecutionScopes,
+        _exec_scopes: &mut ExecutionScopes,
     ) -> Result<(), HintError> {
         //(ids.scalar % PRIME) % 2
         let scalar = get_integer_from_reference(vm, &self.scalar, &self.ap_tracking)

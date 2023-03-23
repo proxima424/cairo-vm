@@ -2,20 +2,16 @@ use core::str::FromStr;
 
 use super::bigint_utils::BigInt3;
 use crate::{
-    hint_processor::hint_processor_utils::compute_addr_from_reference,
-    stdlib::{
-        collections::HashMap,
-        ops::{BitAnd, Shl},
-        prelude::*,
+    hint_processor::hint_processor_utils::{
+        compute_addr_from_reference, get_integer_from_reference,
     },
+    stdlib::{collections::HashMap, ops::BitAnd, prelude::*},
 };
 use crate::{
     hint_processor::{
         builtin_hint_processor::{
-            hint_utils::{
-                get_integer_from_var_name, get_relocatable_from_var_name, insert_value_into_ap,
-            },
-            secp::secp_utils::{pack, SECP_REM},
+            hint_utils::{get_relocatable_from_var_name, insert_value_into_ap},
+            secp::secp_utils::pack,
         },
         hint_processor_definition::HintReference,
     },
@@ -418,45 +414,77 @@ impl FastEcAddAssignXData {
 Implements hint:
 %{ value = new_y = (slope * (x0 - new_x) - y0) % SECP_P %}
 */
-pub fn fast_ec_add_assign_new_y(
-    exec_scopes: &mut ExecutionScopes,
-    constants: &HashMap<String, Felt252>,
-) -> Result<(), HintError> {
-    #[allow(deprecated)]
-    let secp_p = BigInt::one().shl(256usize)
-        - constants
-            .get(SECP_REM)
-            .ok_or(HintError::MissingConstant(SECP_REM))?
-            .to_bigint();
+#[derive(Debug)]
+pub struct FastEcAddAssignYData {}
 
-    //Get variables from vm scope
-    let (slope, x0, new_x, y0) = (
-        exec_scopes.get::<BigInt>("slope")?,
-        exec_scopes.get::<BigInt>("x0")?,
-        exec_scopes.get::<BigInt>("new_x")?,
-        exec_scopes.get::<BigInt>("y0")?,
-    );
-    let value = (slope * (x0 - new_x) - y0).mod_floor(&secp_p);
-    exec_scopes.insert_value("value", value.clone());
-    exec_scopes.insert_value("new_y", value);
+impl FastEcAddAssignYData {
+    pub fn compile(
+        _reference_ids: &HashMap<String, usize>,
+        _references: &HashMap<usize, HintReference>,
+        _ap_tracking: &ApTracking,
+    ) -> Option<Self> {
+        Some(FastEcAddAssignYData {})
+    }
 
-    Ok(())
+    pub fn execute(
+        &self,
+        vm: &VirtualMachine,
+        exec_scopes: &mut ExecutionScopes,
+    ) -> Result<(), HintError> {
+        //Get variables from vm scope
+        let (slope, x0, new_x, y0) = (
+            exec_scopes.get::<BigInt>("slope")?,
+            exec_scopes.get::<BigInt>("x0")?,
+            exec_scopes.get::<BigInt>("new_x")?,
+            exec_scopes.get::<BigInt>("y0")?,
+        );
+        let value = (slope * (x0 - new_x) - y0).mod_floor(&SECP_P);
+        exec_scopes.insert_value("value", value.clone());
+        exec_scopes.insert_value("new_y", value);
+
+        Ok(())
+    }
 }
 
 /*
 Implements hint:
 %{ memory[ap] = (ids.scalar % PRIME) % 2 %}
 */
-pub fn ec_mul_inner(
-    vm: &mut VirtualMachine,
-    ids_data: &HashMap<String, HintReference>,
-    ap_tracking: &ApTracking,
-) -> Result<(), HintError> {
-    //(ids.scalar % PRIME) % 2
-    let scalar = get_integer_from_var_name("scalar", vm, ids_data, ap_tracking)?
-        .as_ref()
-        .bitand(&Felt252::one());
-    insert_value_into_ap(vm, scalar)
+#[derive(Debug)]
+pub struct EcMulInnerData {
+    scalar: HintReference,
+    ap_tracking: ApTracking,
+}
+
+impl EcMulInnerData {
+    pub fn compile(
+        reference_ids: &HashMap<String, usize>,
+        references: &HashMap<usize, HintReference>,
+        ap_tracking: &ApTracking,
+    ) -> Option<Self> {
+        Some(EcMulInnerData {
+            scalar: references
+                .get(
+                    reference_ids
+                        .get("starkware.cairo.common.cairo_secp.ec.ec_mul_inner.scalar")?,
+                )?
+                .clone(),
+            ap_tracking: ap_tracking.clone(),
+        })
+    }
+
+    pub fn execute(
+        &self,
+        vm: &mut VirtualMachine,
+        exec_scopes: &mut ExecutionScopes,
+    ) -> Result<(), HintError> {
+        //(ids.scalar % PRIME) % 2
+        let scalar = get_integer_from_reference(vm, &self.scalar, &self.ap_tracking)
+            .map_err(|_| HintError::UnknownIdentifier("scalar".to_string()))?
+            .as_ref()
+            .bitand(&Felt252::one());
+        insert_value_into_ap(vm, scalar)
+    }
 }
 
 #[cfg(test)]

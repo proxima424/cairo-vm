@@ -1,5 +1,5 @@
 [workspace]
-members = ["cairo-vm-cli", "felt", "vm", "hint_accountant"]
+members = ["cairo-vm-cli", "felt", "vm", "hint_accountant", "examples/wasm"]
 exclude = ["ensure-no_std"]
 
 # Explicitly set the resolver to the default for edition >= 2021

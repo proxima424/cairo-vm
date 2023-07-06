@@ -1,5 +1,11 @@
 [workspace]
-members = ["cairo-vm-cli", "felt", "vm", "hint_accountant", "examples/wasm"]
+members = [
+    "cairo-vm-cli",
+    "felt",
+    "vm",
+    "hint_accountant",
+    "examples/wasm-demo",
+]
 exclude = ["ensure-no_std"]
 
 # Explicitly set the resolver to the default for edition >= 2021
@@ -12,6 +18,7 @@ edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/lambdaclass/cairo-vm/"
 readme = "README.md"
+keywords = ["starknet", "cairo", "vm", "wasm", "no_std"]
 
 [workspace.dependencies]
 felt = { package = "cairo-felt", path = "./felt", version = "0.8.1", default-features = false, features = [

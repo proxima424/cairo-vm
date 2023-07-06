@@ -2293,18 +2293,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sample-cairo-wasm"
-version = "0.1.0"
-dependencies = [
- "cairo-vm",
- "console_error_panic_hook",
- "serde_json",
- "wasm-bindgen",
- "wasm-bindgen-test",
- "wee_alloc",
-]
-
-[[package]]
 name = "schemars"
 version = "0.8.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2866,6 +2854,18 @@ checksum = "ecb993dd8c836930ed130e020e77d9b2e65dd0fbab1b67c790b0f5d80b11a575"
 dependencies = [
  "proc-macro2",
  "quote",
+]
+
+[[package]]
+name = "wasm-demo"
+version = "0.1.0"
+dependencies = [
+ "cairo-vm",
+ "console_error_panic_hook",
+ "serde_json",
+ "wasm-bindgen",
+ "wasm-bindgen-test",
+ "wee_alloc",
 ]
 
 [[package]]

@@ -180,7 +180,7 @@ test-wasm: $(COMPILED_PROOF_TESTS) $(COMPILED_TESTS) $(COMPILED_BAD_TESTS) $(COM
 	# NOTE: release mode is needed to avoid "too many locals" error
 	wasm-pack test --release --node vm --no-default-features
 
-clippy: example_programs
+clippy:
 	cargo clippy --workspace --all-features --benches --examples --tests -- -D warnings
 
 coverage:

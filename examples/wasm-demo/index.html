@@ -16,11 +16,15 @@
         await init();
 
         // Run cairo-rs through our proxy function.
-        await runCairoProgram();
+        const value = await runCairoProgram();
+
+        // Display the result.
+        document.getElementById('result').innerHTML += value;
     </script>
 </head>
 
 <body>
+    <p id="result">Result: </p>
 </body>
 
 </html>

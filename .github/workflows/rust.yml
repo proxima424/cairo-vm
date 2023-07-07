@@ -31,6 +31,7 @@ jobs:
         path: |
           cairo_programs/**/*.casm
           cairo_programs/**/*.json
+          examples/wasm-demo/src/array_sum.json
         key: ${{ matrix.program-target }}-cache-${{ hashFiles( 'cairo_programs/**/*.cairo' ) }}
         restore-keys: ${{ matrix.program-target }}-cache-
 
@@ -81,6 +82,7 @@ jobs:
         path: |
           cairo_programs/**/*.casm
           cairo_programs/**/*.json
+          examples/wasm-demo/src/array_sum.json
         key: cairo_test_programs-cache-${{ hashFiles( 'cairo_programs/**/*.cairo' ) }}
     - name: Fetch proof programs
       uses: actions/cache/restore@v3
@@ -137,6 +139,7 @@ jobs:
         path: |
           cairo_programs/**/*.casm
           cairo_programs/**/*.json
+          examples/wasm-demo/src/array_sum.json
         key: cairo_test_programs-cache-${{ hashFiles( 'cairo_programs/**/*.cairo' ) }}
     - name: Fetch proof programs
       uses: actions/cache/restore@v3
@@ -219,6 +222,7 @@ jobs:
         path: |
           cairo_programs/**/*.casm
           cairo_programs/**/*.json
+          examples/wasm-demo/src/array_sum.json
         key: cairo_test_programs-cache-${{ hashFiles( 'cairo_programs/**/*.cairo' ) }}
     - name: Fetch proof programs
       uses: actions/cache/restore@v3

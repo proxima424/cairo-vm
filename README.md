@@ -197,8 +197,7 @@ When using cairo-vm with the Starknet devnet there are additional parameters tha
 
 ### WebAssembly Demo
 
-A demo on how to use `cairo-vm` with WebAssembly can be found
-[here](https://github.com/lambdaclass/cairo-rs-wasm).
+A demo on how to use `cairo-vm` with WebAssembly can be found in [`examples/wasm-demo`](examples/wasm-demo/)
 
 ### Testing
 

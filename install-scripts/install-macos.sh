@@ -18,4 +18,6 @@ make deps-macos
 
 pyenv local 3.9.15
 
+echo $(pyenv init)
+
 pip install -r requirements.txt

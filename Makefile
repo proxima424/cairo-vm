@@ -155,9 +155,11 @@ run:
 check:
 	cargo check
 
-example_programs: examples/wasm-demo/src/array_sum.cairo
+examples/wasm-demo/src/array_sum.json: examples/wasm-demo/src/array_sum.cairo
 	cairo-compile --no_debug_info examples/wasm-demo/src/array_sum.cairo \
 		--output examples/wasm-demo/src/array_sum.json
+
+example_programs: examples/wasm-demo/src/array_sum.json
 
 cairo_test_programs: $(COMPILED_TESTS) $(COMPILED_BAD_TESTS) $(COMPILED_NORETROCOMPAT_TESTS) example_programs
 cairo_proof_programs: $(COMPILED_PROOF_TESTS)

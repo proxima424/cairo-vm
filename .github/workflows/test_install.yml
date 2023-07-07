@@ -35,7 +35,9 @@ jobs:
         run: bash install.sh
 
       - name: Compile project
-        run: make check
+        run: |
+          . cairo-vm-env/bin/activate
+          make check
 
   install_debian:
     name: "Install on debian-11"
@@ -82,5 +84,6 @@ jobs:
 
       - name: Compile project
         run: |
+          . cairo-vm-env/bin/activate
           . "$HOME/.cargo/env"
           make check

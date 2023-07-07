@@ -17,3 +17,5 @@ pyenv -v
 make deps-macos
 
 pyenv local 3.9.15
+
+pip install -r requirements.txt

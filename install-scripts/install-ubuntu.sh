@@ -31,3 +31,5 @@ pyenv -v
 make deps
 
 pyenv local 3.9.15
+
+pip install -r requirements.txt

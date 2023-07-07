@@ -15,3 +15,5 @@ brew install pyenv gmp
 pyenv -v
 
 make deps-macos
+
+pyenv local 3.9.15

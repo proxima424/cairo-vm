@@ -35,7 +35,7 @@ jobs:
         run: bash install.sh
 
       - name: Compile project
-        run: cargo check
+        run: make check
 
   install_debian:
     name: "Install on debian-11"
@@ -83,4 +83,4 @@ jobs:
       - name: Compile project
         run: |
           . "$HOME/.cargo/env"
-          cargo check
+          make check

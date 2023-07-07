@@ -152,7 +152,7 @@ build: $(RELBIN)
 run:
 	cargo run -p cairo-vm-cli
 
-check:
+check: example_programs
 	cargo check
 
 examples/wasm-demo/src/array_sum.json: examples/wasm-demo/src/array_sum.cairo

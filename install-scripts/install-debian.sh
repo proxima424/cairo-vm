@@ -34,8 +34,7 @@ make deps
 
 pyenv local 3.9.15
 
-eval "$(pyenv init 2>&1)"
-
 pip install -r requirements.txt
 
-echo $(pyenv init)
+echo "-- You need to follow these instructions to finish installing pyenv: --"
+pyenv init || true

@@ -24,7 +24,6 @@ export PYENV_ROOT="$HOME/.pyenv"
 command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"
 eval "$(pyenv init -)"
 
-
 # Make sure pyenv has been installed correctly
 pyenv -v
 
@@ -32,8 +31,7 @@ make deps
 
 pyenv local 3.9.15
 
-eval "$(pyenv init 2>&1)"
-
 pip install -r requirements.txt
 
-echo $(pyenv init)
+echo "-- You need to follow these instructions to finish installing pyenv: --"
+pyenv init || true

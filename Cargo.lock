@@ -2858,7 +2858,7 @@ dependencies = [
 
 [[package]]
 name = "wasm-demo"
-version = "0.1.0"
+version = "0.8.1"
 dependencies = [
  "cairo-vm",
  "console_error_panic_hook",

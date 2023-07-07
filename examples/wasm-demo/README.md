@@ -1,30 +1,31 @@
 # Demo of `cairo-rs` on WebAssembly
 
-While cairo-rs is compatible with WebAssembly, it doesn't implement any bindings
-to it. Instead, create a new WebAssembly crate with cairo-rs as a dependency and
-implement the required functionality there.
+While cairo-rs is compatible with WebAssembly, it doesn't implement any bindings to it.
+Instead, create a new WebAssembly crate with cairo-rs as a dependency and implement the required functionality there.
 
-Since mimalloc is not automatically compilable to WebAssembly, the cairo-rs
-dependency should disable the default features, which will in turn disable
-mimalloc.
-
-WebAssembly doesn't support filesystem access unless building with WASI support,
-therefore cairo_run may not work as is. Running programs requires manual
-program, vm and runner initialization.
+Since mimalloc is not automatically compilable to WebAssembly, the cairo-rs dependency should disable the default features, which will in turn disable mimalloc.
 
 A working example is provided in this repository.
 
-**Building**
+## Building
+
+To build the example, run:
 
 ```sh
-# The web target generates a JavaScript module that is directly loadable by the
-# browser.
 wasm-pack build --target=web
 ```
 
-**Running**
+This will generate a javascript module that is directly loadable by the browser.
+
+## Running
+
+To run the example webpage, you need to run an HTTP server.
+For example, using the _live-server_ npm module:
 
 ```sh
-# Running from file:// will result in a CORS error.
-wasm-pack build --target=web
+# while in <repo>/examples/wasm-demo
+npx live-server
 ```
+
+> **Warning**
+> Trying to run `index.html` directly (i.e. URL starts with `file://`) will result in a CORS error.

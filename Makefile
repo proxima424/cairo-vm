@@ -9,7 +9,8 @@ STARKNET_SIERRA_COMPILE:=cairo/target/release/starknet-sierra-compile
 	compare_trace_memory_proof compare_trace_proof compare_memory_proof \
 	cairo_bench_programs cairo_proof_programs cairo_test_programs \
 	cairo_trace cairo-vm_trace cairo_proof_trace cairo-vm_proof_trace \
-	$(RELBIN) $(DBGBIN) $(STARKNET_COMPILE) $(STARKNET_SIERRA_COMPILE)
+	$(RELBIN) $(DBGBIN) $(STARKNET_COMPILE) $(STARKNET_SIERRA_COMPILE) \
+	example_programs
 
 # Proof mode consumes too much memory with cairo-lang to execute
 # two instances at the same time in the CI without getting killed
@@ -154,7 +155,11 @@ run:
 check:
 	cargo check
 
-cairo_test_programs: $(COMPILED_TESTS) $(COMPILED_BAD_TESTS) $(COMPILED_NORETROCOMPAT_TESTS)
+example_programs: examples/wasm-demo/src/array_sum.cairo
+	cairo-compile --no_debug_info examples/wasm-demo/src/array_sum.cairo \
+		--output examples/wasm-demo/src/array_sum.json
+
+cairo_test_programs: $(COMPILED_TESTS) $(COMPILED_BAD_TESTS) $(COMPILED_NORETROCOMPAT_TESTS) example_programs
 cairo_proof_programs: $(COMPILED_PROOF_TESTS)
 cairo_bench_programs: $(COMPILED_BENCHES)
 cairo_1_test_contracts: $(COMPILED_CASM_CONTRACTS)

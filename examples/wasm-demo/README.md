@@ -7,9 +7,26 @@ Since mimalloc is not automatically compilable to WebAssembly, the cairo-rs depe
 
 A working example is provided in this repository.
 
+## Dependencies
+
+To compile and run the example you need:
+
+- a Cairo 0 compiler
+- the _wasm-pack_ crate
+- some HTTP server (for example: the `live-server` npm module)
+
+> **Note**
+> The first two dependencies can be installed via the repository's installation script (see ["Installation script"](../../README.md#installation-script))
+
 ## Building
 
-To build the example, run:
+To build the example, first compile your Cairo program:
+
+```sh
+cairo-compile src/array_sum.cairo --no_debug_info --output src/array_sum.json
+```
+
+And then the WebAssembly package:
 
 ```sh
 wasm-pack build --target=web

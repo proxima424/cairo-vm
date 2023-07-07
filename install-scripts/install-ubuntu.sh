@@ -32,6 +32,8 @@ make deps
 
 pyenv local 3.9.15
 
-echo $(pyenv init)
+eval "$(pyenv init 2>&1)"
 
 pip install -r requirements.txt
+
+echo $(pyenv init)

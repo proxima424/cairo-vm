@@ -36,7 +36,7 @@ jobs:
 
       - name: Compile project
         run: |
-          eval $(pyenv init)
+          eval "$(pyenv init 2>&1)"
           make check
 
   install_debian:
@@ -85,5 +85,5 @@ jobs:
       - name: Compile project
         run: |
           . "$HOME/.cargo/env"
-          eval $(pyenv init)
+          eval "$(pyenv init 2>&1)"
           make check

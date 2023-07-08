@@ -31,12 +31,10 @@ jobs:
           python-version: '3.9'
           cache: 'pip'
 
-      - name: Install dependencies
-        run: bash install.sh
-
-      - name: Compile project
+      # NOTE: we do it in one step because GitHub cleans the PATH between steps
+      - name: Install dependencies and compile project
         run: |
-          eval "$(pyenv init -)"
+          bash install.sh
           make check
 
   install_debian:
@@ -79,11 +77,8 @@ jobs:
           key: ${{ runner.os }}-python-install-${{ github.sha }}
           restore-keys: ${{ runner.os }}-python-install-
 
-      - name: Install dependencies
-        run: bash install.sh
-
-      - name: Compile project
+      # NOTE: we do it in one step because GitHub cleans the PATH between steps
+      - name: Install dependencies and compile project
         run: |
-          . "$HOME/.cargo/env"
-          eval "$(pyenv init -)"
+          bash install.sh
           make check

@@ -34,7 +34,7 @@ jobs:
       # NOTE: we do it in one step because GitHub cleans the PATH between steps
       - name: Install dependencies and compile project
         run: |
-          bash install.sh
+          source install.sh
           make check
 
   install_debian:
@@ -80,5 +80,5 @@ jobs:
       # NOTE: we do it in one step because GitHub cleans the PATH between steps
       - name: Install dependencies and compile project
         run: |
-          bash install.sh
+          source install.sh
           make check
